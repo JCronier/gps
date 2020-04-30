@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
- #!/usr/bin/env python -W ignore::DeprecationWarning
+#!/usr/bin/env python -W ignore::DeprecationWarning
 
 # In[33]:
 
@@ -13,7 +13,7 @@ import pandas as pd
 from arcgis.gis import GIS
 import arcgis.network as network
 import arcgis.geocoding as geocoding
-import haversine as hv
+from haversine import haversine
 
 # In[34]:
 
@@ -40,24 +40,25 @@ def init():
     route_service = network.RouteLayer(route_service_url, gis=my_gis)
 
 def remove_points():
-	for i in gps_points.index:
-		  if i == 0:
-            result = haversine(home,[gps_points['longitude'][i], gps_points['latitude'][i]])
-        elif gps_points['Date'][i] != gps_points['Date'][i-1]:
-            result = haversine(home,[gps_points['longitude'][i], gps_points['latitude'][i]])
-        elif gps_points['Date'][i] != gps_points['Date'][i+1]:
-            result = haversine([gps_points['longitude'][i], gps_points['latitude'][i]],home)
+    new_results = []
+    rows_to_drop = []
+    for index,row in gps_points.head(100).iterrows():
+        if index == 0:
+            result = haversine(home,[gps_points['longitude'][index], gps_points['latitude'][index]])
+        elif gps_points['Date'][index] != gps_points['Date'][index-1]:
+            result = haversine(home,[gps_points['longitude'][index], gps_points['latitude'][index]])
+        elif gps_points['Date'][index] != gps_points['Date'][index+1]:
+            result = haversine([gps_points['longitude'][index], gps_points['latitude'][index]],home)
         else:
-            result = haversine([gps_points['longitude'][i-1], gps_points['latitude'][i-1]],[gps_points['longitude'][i], gps_points['latitude'][i]])
-
-        if result < 1:
-        	gps_points.drop([i],axis=0)
-
-
-
-
-# In[36]:
-
+            result = haversine([gps_points['longitude'][index-1], gps_points['latitude'][index-1]],[gps_points['longitude'][index], gps_points['latitude'][index]])
+     
+        if result < 2:
+            rows_to_drop.append(index)
+        else:
+            new_results.append(result)
+           
+    gps_points.drop(rows_to_drop,axis='index',inplace=True)
+    gps_points.reset_index(drop=True,inplace=True)
 
 def dist_calc(location1,location2):
     route_layer = network.RouteLayer(route_service_url, gis=my_gis)
@@ -75,34 +76,25 @@ def dist_calc(location1,location2):
     #print("Total distance is {0:.2f} km".format(total_distance))
 
 
-# In[47]:
-
-
 def main():
     init()
-    global d
+    remove_points()
     d=[]
-    for i in range(100):
-        print("Calculating Point {}\r".format(i),end="")
+    for index,row in gps_points.head(100).iterrows():
+        print("Calculating Point {}\r".format(index),end="")
 
-        if i == 0:
-            d.append(dist_calc(home,[gps_points['longitude'][i], gps_points['latitude'][i]]))
-        elif gps_points['Date'][i] != gps_points['Date'][i-1]:
-            d.append(dist_calc(home,[gps_points['longitude'][i], gps_points['latitude'][i]]))
-        elif gps_points['Date'][i] != gps_points['Date'][i+1]:
-            d.append(dist_calc([gps_points['longitude'][i], gps_points['latitude'][i]],home))
+        if index == 0:
+            d.append(dist_calc(home,[gps_points['longitude'][index], gps_points['latitude'][index]]))
+        elif gps_points['Date'][index] != gps_points['Date'][index-1]:
+            d.append(dist_calc(home,[gps_points['longitude'][index], gps_points['latitude'][index]]))
+        elif gps_points['Date'][index] != gps_points['Date'][index+1]:
+            d.append(dist_calc([gps_points['longitude'][index], gps_points['latitude'][index]],home))
         else:
-            d.append(dist_calc([gps_points['longitude'][i-1], gps_points['latitude'][i-1]],[gps_points['longitude'][i], gps_points['latitude'][i]]))
+            d.append(dist_calc([gps_points['longitude'][index-1], gps_points['latitude'][index-1]],[gps_points['longitude'][index], gps_points['latitude'][index]]))
         #print("Calculating Point {}\b".format(i))
     print(d)
 
 main()
-
-
-# In[46]:
-
-# In[ ]:
-
 
 
 
